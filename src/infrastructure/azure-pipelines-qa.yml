@@ -9,20 +9,52 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
+variables:
+  projectName: 'GameHubReact.Client'
+  targetDirectory: 'src/client/'
+  buildConfiguration: 'Release'
+
 steps:
 - task: NodeTool@0
   inputs:
     versionSpec: '18.x'
   displayName: 'Install Node.js'
 
-- script: |
-    cd src/client/GameHubReact.Client/ClientApp/
-    npm install
-    npm run build
-  displayName: 'npm install and build'
+- task: UseDotNet@2
+  inputs:
+    version: 6.x
+  displayName: 'Use .NET Core sdk 6.x'
+- task: PowerShell@2
+  displayName: Clean
+  inputs:
+    targetType: 'inline'
+    script: |
+      dotnet nuget locals all --clear
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'restore'
+    projects: '$(targetDirectory)**/*.csproj'
+  displayName: 'Restore'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+    projects: '$(targetDirectory)**/*.csproj'
+    arguments: '--configuration $(buildConfiguration)'
+  displayName: 'dotnet build $(buildConfiguration)'
+  
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'publish'
+    projects: '$(targetDirectory)**/*.csproj'
+    publishWebProjects: true
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+  displayName: 'Publish $(buildConfiguration)'
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: 'build'
-    ArtifactName: 'drop'
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)' 
+    ArtifactName: '$(projectName)' 
     publishLocation: 'Container'
+  displayName: "Upload Artifacts"
